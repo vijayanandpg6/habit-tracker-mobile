@@ -1,3 +1,4 @@
+import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { v4 as uuidv4 } from 'uuid';
 import { tasksApi } from '@/api';
@@ -8,23 +9,22 @@ import { useNetworkStatus } from '@/sync';
 
 export function useTasks() {
   const isOnline = useNetworkStatus();
-
-  return useQuery({
+  const query = useQuery({
     queryKey: QUERY_KEYS.tasks,
     queryFn: async () => {
-      if (!isOnline) {
+      try {
+        const res = await tasksApi.list();
+        const apiTasks = res.data.data ?? [];
+        // Preserve pending local tasks not yet flushed by the sync queue
+        const pending = tasksStorage.getAll().filter(
+          (t) => t.syncStatus === 'pending' && !apiTasks.find((a) => a._id === t._id),
+        );
+        tasksStorage.saveAll([...pending, ...apiTasks]);
+        tasksStorage.setLastSynced(new Date().toISOString());
+        return tasksStorage.getAll();
+      } catch {
         return tasksStorage.getAll();
       }
-      const res = await tasksApi.list();
-      const apiTasks = res.data.data ?? [];
-      // Preserve pending local tasks not yet synced so they don't vanish
-      // while the sync queue is still processing them
-      const pending = tasksStorage.getAll().filter(
-        (t) => t.syncStatus === 'pending' && !apiTasks.find((a) => a._id === t._id),
-      );
-      tasksStorage.saveAll([...pending, ...apiTasks]);
-      tasksStorage.setLastSynced(new Date().toISOString());
-      return tasksStorage.getAll();
     },
     initialData: () => tasksStorage.getAll(),
     initialDataUpdatedAt: () => {
@@ -32,6 +32,14 @@ export function useTasks() {
       return last ? new Date(last).getTime() : 0;
     },
   });
+
+  // Trigger a fresh fetch when the device comes back online
+  React.useEffect(() => {
+    if (isOnline) query.refetch();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
+
+  return query;
 }
 
 export function useCreateTask() {

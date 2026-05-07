@@ -92,7 +92,13 @@ export function SettingsScreen({ onLogout }: Props) {
           <Divider indent={20} />
           <SettingsRow
             label="Email verified"
-            value={me?.isEmailVerified ? 'Yes' : 'No'}
+            value={
+              (me?.isEmailVerified ?? session?.user.isEmailVerified) === true
+                ? 'Yes'
+                : (me?.isEmailVerified ?? session?.user.isEmailVerified) === false
+                ? 'No'
+                : '-'
+            }
           />
         </View>
 
