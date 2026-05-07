@@ -1,0 +1,160 @@
+import React, { useState } from 'react';
+import {
+  View,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AuthStackParamList } from '@/navigation/types';
+import { useAuth } from '@/services/AuthContext';
+import { useTheme } from '@/theme';
+import { Text, Button, Input } from '@/components/common';
+
+type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
+
+export function LoginScreen({ navigation }: Props) {
+  const { login, isLoading, error, clearError } = useAuth();
+  const { colors, spacing } = useTheme();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+
+  function validate() {
+    const errs: typeof fieldErrors = {};
+    if (!email.trim()) errs.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(email)) errs.email = 'Enter a valid email';
+    if (!password) errs.password = 'Password is required';
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
+
+  async function handleLogin() {
+    clearError();
+    if (!validate()) return;
+    try {
+      await login({ email: email.trim().toLowerCase(), password });
+    } catch {
+      // error surfaced via context
+    }
+  }
+
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.kav}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.scroll, { paddingHorizontal: spacing[6] }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text variant="h2" weight="bold" color={colors.text}>
+              Welcome back
+            </Text>
+            <Text variant="body" color={colors.textSecondary} style={styles.subtitle}>
+              Log in to continue
+            </Text>
+          </View>
+
+          <View style={styles.form}>
+            <Input
+              label="Email"
+              value={email}
+              onChangeText={(t) => { setEmail(t); setFieldErrors((e) => ({ ...e, email: undefined })); }}
+              error={fieldErrors.email}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
+              returnKeyType="next"
+              placeholder="you@example.com"
+            />
+
+            <Input
+              label="Password"
+              value={password}
+              onChangeText={(t) => { setPassword(t); setFieldErrors((e) => ({ ...e, password: undefined })); }}
+              error={fieldErrors.password}
+              secureTextEntry
+              autoCapitalize="none"
+              autoComplete="password"
+              returnKeyType="done"
+              placeholder="Enter password"
+              onSubmitEditing={handleLogin}
+              containerStyle={styles.fieldGap}
+            />
+
+            {error && (
+              <View style={[styles.errorBox, { backgroundColor: colors.dangerSurface, borderRadius: 10 }]}>
+                <Text variant="bodySmall" color={colors.danger}>
+                  {error}
+                </Text>
+              </View>
+            )}
+
+            <Button
+              label="Log in"
+              onPress={handleLogin}
+              loading={isLoading}
+              fullWidth
+              style={styles.submitButton}
+              size="lg"
+            />
+          </View>
+
+          <View style={styles.footer}>
+            <Text variant="body" color={colors.textSecondary}>
+              Don't have an account?{' '}
+            </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+              <Text variant="body" weight="semibold" color={colors.primary}>
+                Sign up
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  kav: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  header: {
+    marginBottom: 36,
+  },
+  subtitle: {
+    marginTop: 6,
+  },
+  form: {
+    gap: 0,
+  },
+  fieldGap: {
+    marginTop: 16,
+  },
+  errorBox: {
+    marginTop: 16,
+    padding: 12,
+  },
+  submitButton: {
+    marginTop: 24,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 32,
+  },
+});

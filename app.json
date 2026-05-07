@@ -1,19 +1,24 @@
 {
   "expo": {
-    "name": "habit-tracker-mobile",
+    "name": "Tasks - Smart Task & Habit Tracker",
     "slug": "habit-tracker-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "tasks",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#EFF6FF"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.habittracker.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,10 +26,13 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "package": "com.habittracker.mobile"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "plugins": [],
+    "extra": {
+      "eas": {
+        "projectId": "e87ab584-0b2a-46fe-8817-da2bd0f2fa13"
+      }
     }
   }
 }
