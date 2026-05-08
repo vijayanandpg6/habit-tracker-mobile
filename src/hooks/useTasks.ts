@@ -15,13 +15,9 @@ export function useTasks() {
       try {
         const res = await tasksApi.list();
         const apiTasks = res.data.data ?? [];
-        // Preserve pending local tasks not yet flushed by the sync queue
-        const pending = tasksStorage.getAll().filter(
-          (t) => t.syncStatus === 'pending' && !apiTasks.find((a) => a._id === t._id),
-        );
-        tasksStorage.saveAll([...pending, ...apiTasks]);
+        tasksStorage.saveAll(apiTasks);
         tasksStorage.setLastSynced(new Date().toISOString());
-        return tasksStorage.getAll();
+        return apiTasks;
       } catch {
         return tasksStorage.getAll();
       }
@@ -62,11 +58,12 @@ export function useCreateTask() {
           syncStatus: 'pending',
           ...fullPayload,
         };
+        tasksStorage.upsert(optimistic);
         syncQueueStorage.enqueue({
           id: uuidv4(),
           type: 'task:create',
           entity: 'task',
-          payload: fullPayload as unknown as Record<string, unknown>,
+          payload: { ...fullPayload, _tempId: tempId } as unknown as Record<string, unknown>,
           createdAt: clientUpdatedAt,
           retryCount: 0,
         });

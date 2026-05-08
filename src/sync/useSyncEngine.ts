@@ -1,7 +1,7 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
-import NetInfo from '@react-native-community/netinfo';
-import { runSyncQueue, getPendingCount } from './syncEngine';
+import { useEffect, useCallback, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
+import { runSyncQueue, getPendingCount } from './syncEngine';
+import { subscribeReconnect } from './connectivityMonitor';
 
 export interface SyncState {
   isSyncing: boolean;
@@ -26,8 +26,6 @@ export function useSyncState(): SyncState {
 }
 
 export function useSyncEngine() {
-  const lastConnectedRef = useRef<boolean | null>(null);
-
   const sync = useCallback(async () => {
     const pending = getPendingCount();
     if (pending === 0) return;
@@ -35,31 +33,27 @@ export function useSyncEngine() {
     try {
       await runSyncQueue();
     } catch {
-      // sync failures are non-fatal
+      // non-fatal
     } finally {
       emitSyncState({ isSyncing: false, pendingCount: getPendingCount() });
     }
   }, []);
 
   useEffect(() => {
-    const unsubscribeNet = NetInfo.addEventListener((state) => {
-      const isConnected = state.isConnected !== false &&
-        !(state.isConnected === true && state.isInternetReachable === false);
-      if (!lastConnectedRef.current && isConnected) {
-        sync();
-      }
-      lastConnectedRef.current = isConnected;
+    // Sync on reconnect (detected by connectivityMonitor via captive.apple.com ping)
+    const unsubReconnect = subscribeReconnect(sync);
+
+    // Sync when app comes to foreground
+    const unsubApp = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'active') sync();
     });
 
-    const unsubscribeApp = AppState.addEventListener('change', (nextState: AppStateStatus) => {
-      if (nextState === 'active') sync();
-    });
-
+    // Sync on mount in case there are pending items from a previous session
     sync();
 
     return () => {
-      unsubscribeNet();
-      unsubscribeApp.remove();
+      unsubReconnect();
+      unsubApp.remove();
     };
   }, [sync]);
 }

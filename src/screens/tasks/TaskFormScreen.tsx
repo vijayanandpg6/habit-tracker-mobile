@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TasksStackParamList } from '@/navigation/types';
@@ -16,6 +17,13 @@ import { useTheme } from '@/theme';
 import { Text, Button, Input } from '@/components/common';
 
 type Props = NativeStackScreenProps<TasksStackParamList, 'TaskForm'>;
+
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+function formatDisplayDate(date: Date): string {
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
 export function TaskFormScreen({ route, navigation }: Props) {
   const { task } = route.params ?? {};
@@ -28,19 +36,29 @@ export function TaskFormScreen({ route, navigation }: Props) {
 
   const [title, setTitle] = useState(task?.title ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
-  const [dueDate, setDueDate] = useState(task?.dueDate ? task.dueDate.slice(0, 10) : '');
-  const [errors, setErrors] = useState<{ title?: string; dueDate?: string }>({});
+  const [dueDate, setDueDate] = useState<Date | null>(
+    task?.dueDate ? new Date(task.dueDate) : null,
+  );
+  const [showPicker, setShowPicker] = useState(false);
+  const [errors, setErrors] = useState<{ title?: string }>({});
 
   const isSubmitting = createTask.isPending || updateTask.isPending;
 
   function validate() {
     const errs: typeof errors = {};
     if (!title.trim()) errs.title = 'Title is required';
-    if (dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
-      errs.dueDate = 'Use format YYYY-MM-DD';
-    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
+  }
+
+  function handleDateChange(_event: unknown, selected?: Date) {
+    if (Platform.OS === 'android') setShowPicker(false);
+    if (selected) setDueDate(selected);
+  }
+
+  function clearDueDate() {
+    setDueDate(null);
+    setShowPicker(false);
   }
 
   async function handleSubmit() {
@@ -48,7 +66,7 @@ export function TaskFormScreen({ route, navigation }: Props) {
     const payload = {
       title: title.trim(),
       description: description.trim() || undefined,
-      dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+      dueDate: dueDate ? dueDate.toISOString() : undefined,
     };
 
     try {
@@ -118,17 +136,59 @@ export function TaskFormScreen({ route, navigation }: Props) {
             containerStyle={styles.fieldGap}
           />
 
-          <Input
-            label="Due date"
-            value={dueDate}
-            onChangeText={(t) => { setDueDate(t); setErrors((e) => ({ ...e, dueDate: undefined })); }}
-            error={errors.dueDate}
-            placeholder="YYYY-MM-DD"
-            keyboardType="numeric"
-            maxLength={10}
-            returnKeyType="done"
-            containerStyle={styles.fieldGap}
-          />
+          {/* Due date picker */}
+          <View style={styles.fieldGap}>
+            <Text variant="bodySmall" weight="medium" color={colors.textSecondary} style={styles.label}>
+              Due date
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowPicker(true)}
+              activeOpacity={0.7}
+              style={[
+                styles.dateButton,
+                {
+                  backgroundColor: colors.inputBackground,
+                  borderColor: colors.inputBorder,
+                },
+              ]}
+            >
+              <Text
+                variant="body"
+                color={dueDate ? colors.text : colors.placeholder}
+              >
+                {dueDate ? formatDisplayDate(dueDate) : 'Select a due date'}
+              </Text>
+              {dueDate && (
+                <TouchableOpacity
+                  onPress={clearDueDate}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text variant="bodySmall" color={colors.textSecondary}>Clear</Text>
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+
+            {showPicker && (
+              <DateTimePicker
+                value={dueDate ?? today}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                minimumDate={today}
+                onValueChange={handleDateChange}
+                accentColor={colors.primary}
+                themeVariant="light"
+              />
+            )}
+
+            {showPicker && Platform.OS === 'ios' && (
+              <TouchableOpacity
+                onPress={() => setShowPicker(false)}
+                style={[styles.doneButton, { backgroundColor: colors.primary }]}
+              >
+                <Text variant="body" weight="semibold" color="#fff">Done</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           {mutationError && (
             <View style={[styles.errorBox, { backgroundColor: colors.dangerSurface, borderRadius: 10 }]}>
@@ -179,6 +239,24 @@ const styles = StyleSheet.create({
     minHeight: 88,
     textAlignVertical: 'top',
     paddingTop: 12,
+  },
+  label: {
+    marginBottom: 6,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  doneButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 8,
   },
   errorBox: {
     marginTop: 16,

@@ -17,7 +17,9 @@ async function executeAction(action: QueuedAction): Promise<void> {
 
   switch (type) {
     case 'task:create': {
-      const res = await tasksApi.create(cast<CreateTaskPayload>(p));
+      const { _tempId, ...createPayload } = cast<CreateTaskPayload & { _tempId?: string }>(p);
+      const res = await tasksApi.create(createPayload);
+      if (_tempId) tasksStorage.remove(_tempId);
       tasksStorage.upsert(res.data.data!);
       break;
     }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -65,6 +65,12 @@ export function SettingsScreen({ onLogout }: Props) {
   const { colors, spacing } = useTheme();
   const { session } = useAuth();
   const isOnline = useNetworkStatus();
+  const [pendingCount, setPendingCount] = useState(() => syncQueueStorage.size());
+
+  useEffect(() => {
+    const interval = setInterval(() => setPendingCount(syncQueueStorage.size()), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const { data: me } = useQuery({
     queryKey: QUERY_KEYS.me,
@@ -72,8 +78,6 @@ export function SettingsScreen({ onLogout }: Props) {
     enabled: !!session,
     staleTime: 1000 * 60 * 5,
   });
-
-  const pendingCount = syncQueueStorage.size();
 
   function handleLogout() {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
